@@ -4,6 +4,22 @@ import Testing
 import UIKit
 
 struct OnboardingAuthLoginViewTests {
+    @MainActor @Test func kuniniServerStartsWithQueryFreeSessionPreflight() throws {
+        let baseURL = try #require(URL(string: "https://home.kunini.ru"))
+        let viewModel = try OnboardingAuthLoginViewModel(authDetails: OnboardingAuthDetails(baseURL: baseURL))
+
+        #expect(viewModel.requestURLForTests == baseURL)
+        #expect(viewModel.requestURLForTests.query == nil)
+    }
+
+    @MainActor @Test func unrelatedServerStartsWithHomeAssistantAuthorization() throws {
+        let baseURL = try #require(URL(string: "https://homeassistant.example.com"))
+        let viewModel = try OnboardingAuthLoginViewModel(authDetails: OnboardingAuthDetails(baseURL: baseURL))
+
+        #expect(viewModel.requestURLForTests.path == "/auth/authorize")
+        #expect(viewModel.requestURLForTests.queryItems?["response_type"] == "code")
+    }
+
     /// The web view is laid out edge to edge, so a horizontal safe area inset (iPhone Duo camera
     /// or vertical bar) must not narrow it; WebKit insets the page content itself.
     @MainActor @Test func webViewSpansTheWholeWidthPastTheSafeArea() throws {

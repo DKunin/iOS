@@ -41,9 +41,12 @@ final class OnboardingAuthLoginViewModel: NSObject, ObservableObject, Identifiab
     private let resolver: Resolver<URL>
     private var lastNavigatedURL: URL?
     private var hasStartedLoading = false
+    private var isAwaitingKuniniSession: Bool
+    private var isCompletingKuniniPreflight = false
 
     init(authDetails: OnboardingAuthDetails) {
         self.authDetails = authDetails
+        self.isAwaitingKuniniSession = KuniniSessionCookie.protects(authDetails.url)
         (self.promise, self.resolver) = Promise<URL>.pending()
 
         // The server being onboarded isn't in `Current.servers` yet, so name its URL explicitly.
@@ -71,7 +74,7 @@ final class OnboardingAuthLoginViewModel: NSObject, ObservableObject, Identifiab
     }
 
     func refresh() {
-        webView.load(URLRequest(url: authDetails.url))
+        webView.load(URLRequest(url: requestURL))
     }
 
     func cancel() {
@@ -108,6 +111,7 @@ final class OnboardingAuthLoginViewModel: NSObject, ObservableObject, Identifiab
 
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
         isLoading = false
+        completeKuniniPreflightIfReady(in: webView)
     }
 
     func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
@@ -150,6 +154,33 @@ final class OnboardingAuthLoginViewModel: NSObject, ObservableObject, Identifiab
                 lastNavigatedURL = url
             }
             decisionHandler(.allow)
+        }
+    }
+
+    private var requestURL: URL {
+        isAwaitingKuniniSession ? authDetails.url.serverBaseURL() : authDetails.url
+    }
+
+    private func completeKuniniPreflightIfReady(in webView: WKWebView) {
+        guard isAwaitingKuniniSession,
+              !isCompletingKuniniPreflight,
+              webView.url?.host?.lowercased() == authDetails.url.host?.lowercased() else { return }
+
+        isCompletingKuniniPreflight = true
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            defer { isCompletingKuniniPreflight = false }
+
+            do {
+                try await OnboardingKuniniSessionCookieSync.syncIfNeeded(
+                    for: authDetails.url,
+                    from: webView.configuration.websiteDataStore.httpCookieStore
+                )
+                isAwaitingKuniniSession = false
+                webView.load(URLRequest(url: authDetails.url))
+            } catch {
+                Current.Log.warning("Waiting for Kunini Auth session cookie: \(error.localizedDescription)")
+            }
         }
     }
 
@@ -200,6 +231,10 @@ final class OnboardingAuthLoginViewModel: NSObject, ObservableObject, Identifiab
 extension OnboardingAuthLoginViewModel {
     var webViewForTests: WKWebView {
         webView
+    }
+
+    var requestURLForTests: URL {
+        requestURL
     }
 }
 #endif
