@@ -12,27 +12,16 @@ class OnboardingAuthDetails: Equatable {
             throw OnboardingAuthError(kind: .invalidURL)
         }
 
-        let redirectURI: String
-        let scheme: String
-        let clientID: String
-
-        // swiftlint:disable prohibit_environment_assignment
-        if Current.appConfiguration == .debug {
-            clientID = "https://home-assistant.io/iOS/dev-auth"
-            redirectURI = "homeassistant-dev://auth-callback"
-            scheme = "homeassistant-dev"
-        } else {
-            clientID = "https://home-assistant.io/iOS"
-            redirectURI = "homeassistant://auth-callback"
-            scheme = "homeassistant"
-        }
-        // swiftlint:enable prohibit_environment_assignment
+        let client = HomeAssistantAuthClient.details(
+            isDebug: Current.appConfiguration == .debug,
+            for: baseURL
+        )
 
         components.path = "/auth/authorize"
         components.queryItems = [
             URLQueryItem(name: "response_type", value: "code"),
-            URLQueryItem(name: "client_id", value: clientID),
-            URLQueryItem(name: "redirect_uri", value: redirectURI),
+            URLQueryItem(name: "client_id", value: client.clientID),
+            URLQueryItem(name: "redirect_uri", value: client.redirectURI),
         ]
 
         guard let authURL = components.url else {
@@ -40,7 +29,7 @@ class OnboardingAuthDetails: Equatable {
         }
 
         self.url = authURL
-        self.scheme = scheme
+        self.scheme = client.callbackScheme
     }
 
     static func == (lhs: OnboardingAuthDetails, rhs: OnboardingAuthDetails) -> Bool {

@@ -6,7 +6,7 @@ struct RouteInfo: Alamofire.URLRequestConvertible {
     let baseURL: URL
 
     func asURLRequest() throws -> URLRequest {
-        try route.asURLRequestWith(baseURL: baseURL)
+        try route.asURLRequest(with: baseURL)
     }
 }
 
@@ -15,10 +15,10 @@ enum AuthenticationRoute {
     case refreshToken(token: String)
     case revokeToken(token: String)
 
-    func asURLRequestWith(baseURL: URL) throws -> URLRequest {
+    func asURLRequest(with baseURL: URL) throws -> URLRequest {
         let baseRequest = try URLRequest(url: baseURL.appendingPathComponent(path), method: method)
         let request: URLRequest
-        if let parameters {
+        if let parameters = parameters(for: baseURL) {
             request = try URLEncoding.httpBody.encode(baseRequest, with: parameters)
         } else {
             request = baseRequest
@@ -28,23 +28,16 @@ enum AuthenticationRoute {
 
     // MARK: - Private helpers
 
-    private var clientID: String {
-        var clientID = "https://home-assistant.io/iOS"
-
-        // swiftlint:disable prohibit_environment_assignment
-        if HANetworkingEnvironment.current.isDebug {
-            clientID = "https://home-assistant.io/iOS/dev-auth"
-        }
-        // swiftlint:enable prohibit_environment_assignment
-
-        return clientID
-    }
-
     private var method: HTTPMethod {
         .post
     }
 
-    private var parameters: Parameters? {
+    private func parameters(for baseURL: URL) -> Parameters? {
+        let clientID = HomeAssistantAuthClient.details(
+            isDebug: HANetworkingEnvironment.current.isDebug,
+            for: baseURL
+        ).clientID
+
         switch self {
         case let .token(authorizationCode):
             return ["client_id": clientID, "grant_type": "authorization_code", "code": authorizationCode]
