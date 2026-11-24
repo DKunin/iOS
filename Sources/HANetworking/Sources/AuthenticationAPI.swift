@@ -40,9 +40,12 @@ public class AuthenticationAPI {
 
     public init(server: Server) {
         self.server = server
+        let configuration = URLSessionConfiguration.default
+        KuniniSessionCookie.configure(configuration, for: server.info.connection.configuredURLs)
         // Use custom delegate that supports client certificates (mTLS). Required on watchOS too:
         // token refresh is a REST call, and an mTLS server rejects it without the client cert.
         self.session = Session(
+            configuration: configuration,
             delegate: ClientCertificateSessionDelegate(server: server),
             serverTrustManager: CustomServerTrustManager(server: server)
         )
@@ -104,20 +107,29 @@ public class AuthenticationAPI {
         clientCertificate: ClientCertificate? = nil
     ) -> Promise<TokenInfo> {
         let session: Session
+        let configuration = URLSessionConfiguration.default
+        KuniniSessionCookie.configure(configuration, for: [baseURL])
 
         #if !os(watchOS)
         if let clientCert = clientCertificate {
             // Create a session delegate that handles client certificate challenges
             let delegate = OnboardingClientCertificateDelegate(certificate: clientCert)
             session = Session(
+                configuration: configuration,
                 delegate: delegate,
                 serverTrustManager: CustomServerTrustManager(exceptions: exceptions)
             )
         } else {
-            session = Session(serverTrustManager: CustomServerTrustManager(exceptions: exceptions))
+            session = Session(
+                configuration: configuration,
+                serverTrustManager: CustomServerTrustManager(exceptions: exceptions)
+            )
         }
         #else
-        session = Session(serverTrustManager: CustomServerTrustManager(exceptions: exceptions))
+        session = Session(
+            configuration: configuration,
+            serverTrustManager: CustomServerTrustManager(exceptions: exceptions)
+        )
         #endif
 
         return Promise { seal in

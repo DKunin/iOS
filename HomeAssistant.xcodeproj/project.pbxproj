@@ -1373,6 +1373,7 @@
 				API/OnboardingAuthLogin.swift,
 				API/OnboardingAuthLoginView.swift,
 				API/OnboardingAuthLoginViewModel.swift,
+				API/OnboardingKuniniSessionCookieSync.swift,
 				API/OnboardingAuthPresenter.swift,
 				API/OnboardingAuthStep.swift,
 				API/OnboardingAuthStepClientCertificate.swift,

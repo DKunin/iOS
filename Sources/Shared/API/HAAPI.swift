@@ -247,6 +247,7 @@ public class HomeAssistantAPI {
         configuration: URLSessionConfiguration = .ephemeral,
         onStep: ((String) -> Void)? = nil
     ) -> URLSession {
+        KuniniSessionCookie.configure(configuration, for: server.info.connection.configuredURLs)
         let certificateProvider = HomeAssistantCertificateProvider(server: server, onStep: onStep)
         let delegate = HAURLSessionDelegate(certificateProvider: certificateProvider)
         #if os(watchOS)
